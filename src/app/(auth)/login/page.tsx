@@ -106,6 +106,12 @@ export default function LoginPage() {
         <p style={{ textAlign: 'center', color: 'var(--text3)', fontSize: 11, marginTop: 20 }}>
           © 2024 株式会社ZIRAKU
         </p>
+
+        {/* 環境変数デバッグ（確認後に削除） */}
+        <div style={{ marginTop: 16, padding: '8px 12px', background: '#f1f5f9', borderRadius: 6, fontSize: 10, color: '#64748b', fontFamily: 'monospace', wordBreak: 'break-all' }}>
+          URL: {process.env.NEXT_PUBLIC_SUPABASE_URL ? `${process.env.NEXT_PUBLIC_SUPABASE_URL.slice(0, 30)}...` : '❌ 未設定'}<br />
+          KEY: {process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ? `${process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY.slice(0, 10)}...（{process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY.length}文字）` : '❌ 未設定'}
+        </div>
       </div>
     </div>
   )
