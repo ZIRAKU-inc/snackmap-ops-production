@@ -22,8 +22,7 @@ export default function LoginPage() {
       setLoading(false)
       return
     }
-    router.push('/dashboard')
-    router.refresh()
+    router.replace('/dashboard')
   }
 
   const inputStyle: React.CSSProperties = {

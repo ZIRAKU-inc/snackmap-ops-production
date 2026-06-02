@@ -35,6 +35,16 @@ export default function DashboardPage() {
   const [search, setSearch] = useState('')
   const [sortKey, setSortKey] = useState<SortKey>('created_desc')
 
+  // 認証チェック
+  useEffect(() => {
+    const checkAuth = async () => {
+      const supabase = createClient()
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) router.replace('/login')
+    }
+    checkAuth()
+  }, [router])
+
   const fetchCases = useCallback(async () => {
     const supabase = createClient()
     const { data } = await supabase.from('cases').select('*').order('created_at', { ascending: false })

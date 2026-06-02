@@ -29,6 +29,16 @@ export default function CaseDetailPage({ params }: PageProps) {
   const [newAcct, setNewAcct] = useState('')
   const [adding, setAdding] = useState(false)
 
+  // 認証チェック
+  useEffect(() => {
+    const checkAuth = async () => {
+      const supabase = createClient()
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) router.replace('/login')
+    }
+    checkAuth()
+  }, [router])
+
   const fetchCase = useCallback(async () => {
     const supabase = createClient()
     const { data, error } = await supabase.from('cases').select('*').eq('id', params.id).single()
