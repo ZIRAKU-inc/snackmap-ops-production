@@ -354,9 +354,29 @@ function Step8({ caseItem, onStepComplete }: Pick<Props, 'caseItem' | 'onStepCom
     } finally { setLoading(false) }
   }
 
+  const updateResult = (patch: Partial<StoreIntroResult>) => {
+    if (!result) return
+    const next = { ...result, ...patch }
+    setResult(next)
+    try { localStorage.setItem(`smo_case_${caseItem.id}_store_intro_result`, JSON.stringify(next)) } catch {}
+  }
+
+  const updateTitle = (i: number, val: string) => {
+    if (!result) return
+    const titles = [...result.titles]
+    titles[i] = val
+    updateResult({ titles })
+  }
+
   const copyText = result
     ? `【タイトル案】\n${result.titles.map((t, i) => `${i + 1}. ${t}`).join('\n')}\n\n【紹介文】\n${result.body}\n\n【SEOタイトル】\n${result.seo_title}\n\n【メタディスクリプション】\n${result.meta_description}`
     : ''
+
+  const taStyle: React.CSSProperties = {
+    width: '100%', fontFamily: 'inherit', fontSize: 12, color: 'var(--text)',
+    background: 'var(--white)', border: '1px solid var(--border)', borderRadius: 'var(--rs)',
+    padding: '10px 12px', outline: 'none', resize: 'vertical', lineHeight: 1.8,
+  }
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
@@ -382,30 +402,53 @@ function Step8({ caseItem, onStepComplete }: Pick<Props, 'caseItem' | 'onStepCom
         </button>
       </div>
       {result && (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 12, borderTop: '1px solid var(--border)', paddingTop: 12 }}>
+          <p style={{ fontSize: 11, color: 'var(--text3)' }}>✏️ 生成された文章は直接編集できます</p>
+
           {/* タイトル案 */}
           <div style={{ background: 'var(--purple-l)', border: '1px solid var(--purple-b)', borderRadius: 'var(--rs)', padding: '12px 14px' }}>
             <p style={{ fontSize: 11, fontWeight: 600, color: 'var(--purple)', marginBottom: 8 }}>タイトル案（5案）</p>
-            <ol style={{ fontSize: 12, color: 'var(--text)', paddingLeft: 18, lineHeight: 2 }}>
-              {result.titles.map((t, i) => <li key={i}>{t}</li>)}
-            </ol>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+              {result.titles.map((t, i) => (
+                <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                  <span style={{ fontSize: 11, color: 'var(--purple)', fontWeight: 600, width: 16, flexShrink: 0 }}>{i + 1}.</span>
+                  <input value={t} onChange={e => updateTitle(i, e.target.value)}
+                    style={{ flex: 1, fontFamily: 'inherit', fontSize: 12, color: 'var(--text)', background: 'var(--white)', border: '1px solid var(--purple-b)', borderRadius: 'var(--rs)', padding: '5px 10px', outline: 'none' }} />
+                  <CopyButton text={t} label="コピー" />
+                </div>
+              ))}
+            </div>
           </div>
+
           {/* 紹介文 */}
           <div>
-            <p style={{ fontSize: 11, fontWeight: 600, color: 'var(--text2)', marginBottom: 6 }}>店舗紹介文</p>
-            <pre style={{ fontSize: 12, color: 'var(--text)', background: 'var(--white)', border: '1px solid var(--border)', borderRadius: 'var(--rs)', padding: '14px 16px', whiteSpace: 'pre-wrap', lineHeight: 1.8, fontFamily: 'inherit', boxShadow: '0 1px 3px rgba(0,0,0,.04)' }}>{result.body}</pre>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
+              <label style={{ fontSize: 11, fontWeight: 600, color: 'var(--text2)' }}>店舗紹介文</label>
+              <CopyButton text={result.body} label="紹介文をコピー" />
+            </div>
+            <textarea value={result.body} onChange={e => updateResult({ body: e.target.value })} rows={12} style={taStyle} />
           </div>
+
           {/* SEO */}
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
-            <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 'var(--rs)', padding: '10px 12px' }}>
-              <p style={{ fontSize: 10, fontWeight: 600, color: 'var(--text3)', marginBottom: 4 }}>SEOタイトル</p>
-              <p style={{ fontSize: 11, color: 'var(--text)' }}>{result.seo_title}</p>
+            <div>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 4 }}>
+                <label style={{ fontSize: 11, fontWeight: 600, color: 'var(--text2)' }}>SEOタイトル</label>
+                <CopyButton text={result.seo_title} label="コピー" />
+              </div>
+              <input value={result.seo_title} onChange={e => updateResult({ seo_title: e.target.value })}
+                style={{ width: '100%', fontFamily: 'inherit', fontSize: 12, color: 'var(--text)', background: 'var(--white)', border: '1px solid var(--border)', borderRadius: 'var(--rs)', padding: '7px 10px', outline: 'none', boxSizing: 'border-box' }} />
             </div>
-            <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 'var(--rs)', padding: '10px 12px' }}>
-              <p style={{ fontSize: 10, fontWeight: 600, color: 'var(--text3)', marginBottom: 4 }}>メタディスクリプション</p>
-              <p style={{ fontSize: 11, color: 'var(--text)' }}>{result.meta_description}</p>
+            <div>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 4 }}>
+                <label style={{ fontSize: 11, fontWeight: 600, color: 'var(--text2)' }}>メタディスクリプション</label>
+                <CopyButton text={result.meta_description} label="コピー" />
+              </div>
+              <textarea value={result.meta_description} onChange={e => updateResult({ meta_description: e.target.value })} rows={3}
+                style={{ ...taStyle, fontSize: 11 }} />
             </div>
           </div>
+
           <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
             <CopyButton text={copyText} label="全文コピー" onCopied={() => onStepComplete(8)} />
           </div>
@@ -465,6 +508,13 @@ function Step9({ caseItem, onStepComplete }: Pick<Props, 'caseItem' | 'onStepCom
     { key: 'store_atmosphere',  label: 'お店の雰囲気（求人用）', placeholder: '高級感のあるアットホームな雰囲気' },
   ] as const
 
+  const updateResult = (patch: Partial<JobTextResult>) => {
+    if (!result) return
+    const next = { ...result, ...patch }
+    setResult(next)
+    try { localStorage.setItem(`smo_case_${caseItem.id}_job_result`, JSON.stringify(next)) } catch {}
+  }
+
   const copyText = result
     ? `【求人タイトル】\n${result.title}\n\n【求人本文】\n${result.body}\n\n【タグ】\n${result.tags.join(' ')}`
     : ''
@@ -508,15 +558,30 @@ function Step9({ caseItem, onStepComplete }: Pick<Props, 'caseItem' | 'onStepCom
         </button>
       </div>
       {result && (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-          <div style={{ background: 'var(--purple-l)', border: '1px solid var(--purple-b)', borderRadius: 'var(--rs)', padding: '10px 14px' }}>
-            <p style={{ fontSize: 10, fontWeight: 600, color: 'var(--purple)', marginBottom: 4 }}>求人タイトル</p>
-            <p style={{ fontSize: 13, fontWeight: 600, color: 'var(--text)' }}>{result.title}</p>
-          </div>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 12, borderTop: '1px solid var(--border)', paddingTop: 12 }}>
+          <p style={{ fontSize: 11, color: 'var(--text3)' }}>✏️ 生成された文章は直接編集できます</p>
+
+          {/* タイトル */}
           <div>
-            <p style={{ fontSize: 11, fontWeight: 600, color: 'var(--text2)', marginBottom: 6 }}>求人本文</p>
-            <pre style={{ fontSize: 12, color: 'var(--text)', background: 'var(--white)', border: '1px solid var(--border)', borderRadius: 'var(--rs)', padding: '14px 16px', whiteSpace: 'pre-wrap', lineHeight: 1.8, fontFamily: 'inherit', boxShadow: '0 1px 3px rgba(0,0,0,.04)' }}>{result.body}</pre>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 4 }}>
+              <label style={{ fontSize: 11, fontWeight: 600, color: 'var(--text2)' }}>求人タイトル</label>
+              <CopyButton text={result.title} label="コピー" />
+            </div>
+            <input value={result.title} onChange={e => updateResult({ title: e.target.value })}
+              style={{ width: '100%', fontFamily: 'inherit', fontSize: 13, fontWeight: 600, color: 'var(--text)', background: 'var(--white)', border: '1px solid var(--border)', borderRadius: 'var(--rs)', padding: '8px 12px', outline: 'none', boxSizing: 'border-box' }} />
           </div>
+
+          {/* 本文 */}
+          <div>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 4 }}>
+              <label style={{ fontSize: 11, fontWeight: 600, color: 'var(--text2)' }}>求人本文</label>
+              <CopyButton text={result.body} label="本文をコピー" />
+            </div>
+            <textarea value={result.body} onChange={e => updateResult({ body: e.target.value })} rows={14}
+              style={{ width: '100%', fontFamily: 'inherit', fontSize: 12, color: 'var(--text)', background: 'var(--white)', border: '1px solid var(--border)', borderRadius: 'var(--rs)', padding: '10px 12px', outline: 'none', resize: 'vertical', lineHeight: 1.8, boxSizing: 'border-box' }} />
+          </div>
+
+          {/* タグ */}
           <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 'var(--rs)', padding: '10px 12px' }}>
             <p style={{ fontSize: 10, fontWeight: 600, color: 'var(--text3)', marginBottom: 6 }}>タグ</p>
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>
@@ -525,6 +590,7 @@ function Step9({ caseItem, onStepComplete }: Pick<Props, 'caseItem' | 'onStepCom
               ))}
             </div>
           </div>
+
           <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
             <CopyButton text={copyText} label="全文コピー" onCopied={() => onStepComplete(9)} />
           </div>
