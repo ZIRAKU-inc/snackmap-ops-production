@@ -314,19 +314,26 @@ function Step7({ caseItem, onStepComplete }: Pick<Props, 'caseItem' | 'onStepCom
   )
 }
 
+interface StoreIntroResult {
+  titles: string[]
+  body: string
+  seo_title: string
+  meta_description: string
+}
+
 function Step8({ caseItem, onStepComplete }: Pick<Props, 'caseItem' | 'onStepComplete'>) {
   const [context, setContext] = usePersistedForm(`smo_case_${caseItem.id}_context`, { area_detail: '', genre: '', price_range: '', business_hours: '', atmosphere: '' })
   const [rawHearing, setRawHearing] = usePersistedForm(`smo_case_${caseItem.id}_store_raw`, { raw_hearing: '' })
-  const [result, setResult] = useState('')
+  const [result, setResult] = useState<StoreIntroResult | null>(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
 
-  const fields = [
-    { key: 'area_detail',    label: 'アクセス',    placeholder: '難波駅徒歩3分' },
-    { key: 'genre',          label: 'ジャンル',    placeholder: 'スナック / ラウンジ / バー' },
-    { key: 'price_range',    label: '料金目安',    placeholder: 'チャージ1,000円〜' },
-    { key: 'business_hours', label: '営業時間',    placeholder: '20時〜翌2時' },
-    { key: 'atmosphere',     label: '雰囲気・特徴', placeholder: 'アットホーム・カラオケあり' },
+  const inputFields = [
+    { key: 'area_detail',    label: 'エリア・最寄駅', placeholder: '東新宿駅徒歩5分、歌舞伎町2丁目' },
+    { key: 'genre',          label: '業態',           placeholder: 'カラオケバー / スナック / ラウンジ' },
+    { key: 'price_range',    label: '料金',           placeholder: '男性5,500円・女性3,300円（飲み放題制）' },
+    { key: 'business_hours', label: '営業時間',       placeholder: '火〜土 0:00〜8:00' },
+    { key: 'atmosphere',     label: '雰囲気・特徴',   placeholder: '夜桜ネオン・カラオケ無料・姉妹店あり' },
   ] as const
 
   const handleGenerate = async () => {
@@ -339,16 +346,20 @@ function Step8({ caseItem, onStepComplete }: Pick<Props, 'caseItem' | 'onStepCom
       })
       const data = await res.json()
       if (!res.ok) throw new Error(data.error || '生成に失敗しました')
-      setResult(data.output_text)
+      setResult(data as StoreIntroResult)
     } catch (e: unknown) {
       setError(e instanceof Error ? e.message : '生成に失敗しました')
     } finally { setLoading(false) }
   }
 
+  const copyText = result
+    ? `【タイトル案】\n${result.titles.map((t, i) => `${i + 1}. ${t}`).join('\n')}\n\n【紹介文】\n${result.body}\n\n【SEOタイトル】\n${result.seo_title}\n\n【メタディスクリプション】\n${result.meta_description}`
+    : ''
+
   return (
-    <div style={{ marginTop: 12, display: 'flex', flexDirection: 'column', gap: 10 }}>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
-        {fields.map(({ key, label, placeholder }) => (
+        {inputFields.map(({ key, label, placeholder }) => (
           <div key={key}>
             <label style={{ fontSize: 11, color: 'var(--text2)', display: 'block', marginBottom: 4 }}>{label}</label>
             <input type="text" value={context[key]} onChange={e => setContext({ [key]: e.target.value })} placeholder={placeholder}
@@ -357,20 +368,44 @@ function Step8({ caseItem, onStepComplete }: Pick<Props, 'caseItem' | 'onStepCom
         ))}
       </div>
       <div>
-        <label style={{ fontSize: 11, color: 'var(--text2)', display: 'block', marginBottom: 4 }}>ヒアリング原文</label>
-        <textarea value={rawHearing.raw_hearing} onChange={e => setRawHearing({ raw_hearing: e.target.value })} placeholder="DMやフォームで受け取ったヒアリング内容をそのまま貼り付け" rows={4}
+        <label style={{ fontSize: 11, color: 'var(--text2)', display: 'block', marginBottom: 4 }}>ヒアリング原文（DMの返信文をそのまま貼り付け）</label>
+        <textarea value={rawHearing.raw_hearing} onChange={e => setRawHearing({ raw_hearing: e.target.value })} placeholder="先方からのDM・ヒアリング回答をそのまま貼り付け" rows={5}
           style={{ width: '100%', fontFamily: 'inherit', fontSize: 12, color: 'var(--text)', background: 'var(--white)', border: '1px solid var(--border)', borderRadius: 'var(--rs)', padding: '7px 10px', outline: 'none', resize: 'vertical' }} />
       </div>
       {error && <p style={{ fontSize: 11, color: '#dc2626' }}>{error}</p>}
-      <button onClick={handleGenerate} disabled={loading}
-        style={{ alignSelf: 'flex-start', display: 'inline-flex', alignItems: 'center', gap: 6, padding: '7px 14px', fontFamily: 'inherit', fontSize: 12, fontWeight: 500, cursor: loading ? 'not-allowed' : 'pointer', borderRadius: 'var(--rs)', border: '1px solid var(--purple-b)', background: 'var(--purple)', color: '#fff', opacity: loading ? 0.7 : 1 }}>
-        {loading ? '⏳ 生成中（約30秒）...' : '✨ AI生成'}
-      </button>
+      <div>
+        <button onClick={handleGenerate} disabled={loading}
+          style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '7px 16px', fontFamily: 'inherit', fontSize: 12, fontWeight: 500, cursor: loading ? 'not-allowed' : 'pointer', borderRadius: 'var(--rs)', border: '1px solid var(--purple-b)', background: 'var(--purple)', color: '#fff', opacity: loading ? 0.7 : 1 }}>
+          {loading ? '⏳ 生成中（約30秒）...' : '✨ AI生成'}
+        </button>
+      </div>
       {result && (
-        <div>
-          <pre style={{ fontSize: 12, color: 'var(--text)', background: 'var(--purple-l)', border: '1px solid var(--purple-b)', borderRadius: 'var(--rs)', padding: '12px 14px', whiteSpace: 'pre-wrap', lineHeight: 1.7, marginBottom: 8, fontFamily: 'inherit' }}>{result}</pre>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+          {/* タイトル案 */}
+          <div style={{ background: 'var(--purple-l)', border: '1px solid var(--purple-b)', borderRadius: 'var(--rs)', padding: '12px 14px' }}>
+            <p style={{ fontSize: 11, fontWeight: 600, color: 'var(--purple)', marginBottom: 8 }}>タイトル案（5案）</p>
+            <ol style={{ fontSize: 12, color: 'var(--text)', paddingLeft: 18, lineHeight: 2 }}>
+              {result.titles.map((t, i) => <li key={i}>{t}</li>)}
+            </ol>
+          </div>
+          {/* 紹介文 */}
+          <div>
+            <p style={{ fontSize: 11, fontWeight: 600, color: 'var(--text2)', marginBottom: 6 }}>店舗紹介文</p>
+            <pre style={{ fontSize: 12, color: 'var(--text)', background: 'var(--white)', border: '1px solid var(--border)', borderRadius: 'var(--rs)', padding: '14px 16px', whiteSpace: 'pre-wrap', lineHeight: 1.8, fontFamily: 'inherit', boxShadow: '0 1px 3px rgba(0,0,0,.04)' }}>{result.body}</pre>
+          </div>
+          {/* SEO */}
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+            <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 'var(--rs)', padding: '10px 12px' }}>
+              <p style={{ fontSize: 10, fontWeight: 600, color: 'var(--text3)', marginBottom: 4 }}>SEOタイトル</p>
+              <p style={{ fontSize: 11, color: 'var(--text)' }}>{result.seo_title}</p>
+            </div>
+            <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 'var(--rs)', padding: '10px 12px' }}>
+              <p style={{ fontSize: 10, fontWeight: 600, color: 'var(--text3)', marginBottom: 4 }}>メタディスクリプション</p>
+              <p style={{ fontSize: 11, color: 'var(--text)' }}>{result.meta_description}</p>
+            </div>
+          </div>
           <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
-            <CopyButton text={result} label="生成文をコピー" onCopied={() => onStepComplete(8)} />
+            <CopyButton text={copyText} label="全文コピー" onCopied={() => onStepComplete(8)} />
           </div>
         </div>
       )}
@@ -378,10 +413,19 @@ function Step8({ caseItem, onStepComplete }: Pick<Props, 'caseItem' | 'onStepCom
   )
 }
 
+interface JobTextResult {
+  title: string
+  body: string
+  tags: string[]
+}
+
 function Step9({ caseItem, onStepComplete }: Pick<Props, 'caseItem' | 'onStepComplete'>) {
   const [context, setContext] = usePersistedForm(`smo_case_${caseItem.id}_context`, { area_detail: '', genre: '', price_range: '', business_hours: '', atmosphere: '' })
-  const [jobForm, setJobForm] = usePersistedForm(`smo_case_${caseItem.id}_job`, { hourly_wage: '', working_hours: '', desired_person: '', benefits: '', raw_hearing: '' })
-  const [result, setResult] = useState('')
+  const [jobForm, setJobForm] = usePersistedForm(`smo_case_${caseItem.id}_job`, {
+    hourly_wage: '', trial_wage: '', working_hours: '', shift_flexibility: '',
+    desired_person: '', benefits: '', store_atmosphere: '', raw_hearing: '',
+  })
+  const [result, setResult] = useState<JobTextResult | null>(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
 
@@ -395,33 +439,38 @@ function Step9({ caseItem, onStepComplete }: Pick<Props, 'caseItem' | 'onStepCom
       })
       const data = await res.json()
       if (!res.ok) throw new Error(data.error || '生成に失敗しました')
-      setResult(data.output_text)
+      setResult(data as JobTextResult)
     } catch (e: unknown) {
       setError(e instanceof Error ? e.message : '生成に失敗しました')
     } finally { setLoading(false) }
   }
 
   const contextFields = [
-    { key: 'area_detail', label: 'アクセス', placeholder: '難波駅徒歩3分' },
-    { key: 'genre', label: 'ジャンル', placeholder: 'スナック' },
-    { key: 'price_range', label: '料金目安', placeholder: 'チャージ1,000円〜' },
-    { key: 'business_hours', label: '営業時間', placeholder: '20時〜翌2時' },
-    { key: 'atmosphere', label: '雰囲気', placeholder: 'アットホーム' },
+    { key: 'area_detail', label: 'エリア・最寄駅', placeholder: '中洲川端駅徒歩3分' },
+    { key: 'genre',       label: '業態',          placeholder: 'スナック' },
+    { key: 'atmosphere',  label: '雰囲気',         placeholder: 'アットホーム・紳士的な常連さん中心' },
   ] as const
 
   const jobFields = [
-    { key: 'hourly_wage', label: '時給・給与', placeholder: '時給1,200円〜' },
-    { key: 'working_hours', label: '勤務時間', placeholder: '20時〜翌2時' },
-    { key: 'desired_person', label: '求める人物像', placeholder: '未経験者歓迎' },
-    { key: 'benefits', label: '待遇・福利厚生', placeholder: '交通費支給・まかない有' },
+    { key: 'hourly_wage',       label: '時給',             placeholder: '時給2,000円〜（経験者優遇）' },
+    { key: 'trial_wage',        label: '体験入店時給',      placeholder: '体験入店時給2,000円' },
+    { key: 'working_hours',     label: '勤務時間',          placeholder: '20:00〜24:00' },
+    { key: 'shift_flexibility', label: 'シフト',            placeholder: '週1日〜OK・月2回も可' },
+    { key: 'desired_person',    label: 'こんな方歓迎',      placeholder: '未経験歓迎・Wワーク・学生OK' },
+    { key: 'benefits',          label: '待遇・福利厚生',    placeholder: '日払いOK・昇給あり・ノルマなし' },
+    { key: 'store_atmosphere',  label: 'お店の雰囲気（求人用）', placeholder: '高級感のあるアットホームな雰囲気' },
   ] as const
 
+  const copyText = result
+    ? `【求人タイトル】\n${result.title}\n\n【求人本文】\n${result.body}\n\n【タグ】\n${result.tags.join(' ')}`
+    : ''
+
   return (
-    <div style={{ marginTop: 12, display: 'flex', flexDirection: 'column', gap: 10 }}>
-      {/* 店舗情報（Step 8から引き継ぎ） */}
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+      {/* 店舗基本情報（Step 8から引き継ぎ） */}
       <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 'var(--rs)', padding: '10px 12px' }}>
-        <p style={{ fontSize: 11, color: 'var(--text3)', marginBottom: 8 }}>店舗基本情報（Step 8から引き継ぎ・編集可）</p>
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 6 }}>
+        <p style={{ fontSize: 11, color: 'var(--text3)', marginBottom: 8 }}>店舗基本情報（Step 8と共有・編集可）</p>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 6 }}>
           {contextFields.map(({ key, label, placeholder }) => (
             <div key={key}>
               <label style={{ fontSize: 10, color: 'var(--text3)', display: 'block', marginBottom: 3 }}>{label}</label>
@@ -443,20 +492,37 @@ function Step9({ caseItem, onStepComplete }: Pick<Props, 'caseItem' | 'onStepCom
         ))}
       </div>
       <div>
-        <label style={{ fontSize: 11, color: 'var(--text2)', display: 'block', marginBottom: 4 }}>求人ヒアリング原文</label>
+        <label style={{ fontSize: 11, color: 'var(--text2)', display: 'block', marginBottom: 4 }}>ヒアリング原文（求人）</label>
         <textarea value={jobForm.raw_hearing} onChange={e => setJobForm({ raw_hearing: e.target.value })} placeholder="求人ヒアリング内容をそのまま貼り付け" rows={3}
           style={{ width: '100%', fontFamily: 'inherit', fontSize: 12, color: 'var(--text)', background: 'var(--white)', border: '1px solid var(--border)', borderRadius: 'var(--rs)', padding: '7px 10px', outline: 'none', resize: 'vertical' }} />
       </div>
       {error && <p style={{ fontSize: 11, color: '#dc2626' }}>{error}</p>}
-      <button onClick={handleGenerate} disabled={loading}
-        style={{ alignSelf: 'flex-start', display: 'inline-flex', alignItems: 'center', gap: 6, padding: '7px 14px', fontFamily: 'inherit', fontSize: 12, fontWeight: 500, cursor: loading ? 'not-allowed' : 'pointer', borderRadius: 'var(--rs)', border: '1px solid var(--purple-b)', background: 'var(--purple)', color: '#fff', opacity: loading ? 0.7 : 1 }}>
-        {loading ? '⏳ 生成中（約20秒）...' : '✨ AI生成'}
-      </button>
+      <div>
+        <button onClick={handleGenerate} disabled={loading}
+          style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '7px 16px', fontFamily: 'inherit', fontSize: 12, fontWeight: 500, cursor: loading ? 'not-allowed' : 'pointer', borderRadius: 'var(--rs)', border: '1px solid var(--purple-b)', background: 'var(--purple)', color: '#fff', opacity: loading ? 0.7 : 1 }}>
+          {loading ? '⏳ 生成中（約20秒）...' : '✨ AI生成'}
+        </button>
+      </div>
       {result && (
-        <div>
-          <pre style={{ fontSize: 12, color: 'var(--text)', background: 'var(--purple-l)', border: '1px solid var(--purple-b)', borderRadius: 'var(--rs)', padding: '12px 14px', whiteSpace: 'pre-wrap', lineHeight: 1.7, marginBottom: 8, fontFamily: 'inherit' }}>{result}</pre>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+          <div style={{ background: 'var(--purple-l)', border: '1px solid var(--purple-b)', borderRadius: 'var(--rs)', padding: '10px 14px' }}>
+            <p style={{ fontSize: 10, fontWeight: 600, color: 'var(--purple)', marginBottom: 4 }}>求人タイトル</p>
+            <p style={{ fontSize: 13, fontWeight: 600, color: 'var(--text)' }}>{result.title}</p>
+          </div>
+          <div>
+            <p style={{ fontSize: 11, fontWeight: 600, color: 'var(--text2)', marginBottom: 6 }}>求人本文</p>
+            <pre style={{ fontSize: 12, color: 'var(--text)', background: 'var(--white)', border: '1px solid var(--border)', borderRadius: 'var(--rs)', padding: '14px 16px', whiteSpace: 'pre-wrap', lineHeight: 1.8, fontFamily: 'inherit', boxShadow: '0 1px 3px rgba(0,0,0,.04)' }}>{result.body}</pre>
+          </div>
+          <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 'var(--rs)', padding: '10px 12px' }}>
+            <p style={{ fontSize: 10, fontWeight: 600, color: 'var(--text3)', marginBottom: 6 }}>タグ</p>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>
+              {result.tags.map((tag, i) => (
+                <span key={i} style={{ fontSize: 10, padding: '2px 8px', borderRadius: 100, background: 'var(--white)', border: '1px solid var(--border)', color: 'var(--text2)' }}>{tag}</span>
+              ))}
+            </div>
+          </div>
           <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
-            <CopyButton text={result} label="求人文をコピー" onCopied={() => onStepComplete(9)} />
+            <CopyButton text={copyText} label="全文コピー" onCopied={() => onStepComplete(9)} />
           </div>
         </div>
       )}
@@ -597,9 +663,15 @@ function Step14({ caseItem, onStepComplete }: Pick<Props, 'caseItem' | 'onStepCo
   )
 }
 
+interface InstagramResult {
+  en_prompt: string
+  ja_prompt: string
+  caption: string
+}
+
 function Step15({ caseItem, onStepComplete }: Pick<Props, 'caseItem' | 'onStepComplete'>) {
   const [form, setForm] = usePersistedForm(`smo_case_${caseItem.id}_ig`, { area: caseItem.area || '', price_range: '', business_hours: '', features: '', atmosphere: '' })
-  const [result, setResult] = useState('')
+  const [result, setResult] = useState<InstagramResult | null>(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
 
@@ -613,22 +685,22 @@ function Step15({ caseItem, onStepComplete }: Pick<Props, 'caseItem' | 'onStepCo
       })
       const data = await res.json()
       if (!res.ok) throw new Error(data.error || '生成に失敗しました')
-      setResult(data.output_text)
+      setResult(data as InstagramResult)
     } catch (e: unknown) {
       setError(e instanceof Error ? e.message : '生成に失敗しました')
     } finally { setLoading(false) }
   }
 
   const fields = [
-    { key: 'area', label: 'エリア', placeholder: '難波' },
-    { key: 'price_range', label: '料金目安', placeholder: 'チャージ1,000円〜' },
+    { key: 'area',           label: 'エリア',   placeholder: '難波' },
+    { key: 'price_range',    label: '料金目安', placeholder: 'チャージ1,000円〜' },
     { key: 'business_hours', label: '営業時間', placeholder: '20時〜翌2時' },
-    { key: 'features', label: '特徴', placeholder: 'カラオケあり' },
-    { key: 'atmosphere', label: '雰囲気', placeholder: 'アットホーム' },
+    { key: 'features',       label: '特徴',     placeholder: 'カラオケあり' },
+    { key: 'atmosphere',     label: '雰囲気',   placeholder: 'アットホーム' },
   ] as const
 
   return (
-    <div style={{ marginTop: 12, display: 'flex', flexDirection: 'column', gap: 10 }}>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
         {fields.map(({ key, label, placeholder }) => (
           <div key={key}>
@@ -639,15 +711,26 @@ function Step15({ caseItem, onStepComplete }: Pick<Props, 'caseItem' | 'onStepCo
         ))}
       </div>
       {error && <p style={{ fontSize: 11, color: '#dc2626' }}>{error}</p>}
-      <button onClick={handleGenerate} disabled={loading}
-        style={{ alignSelf: 'flex-start', display: 'inline-flex', alignItems: 'center', gap: 6, padding: '7px 14px', fontFamily: 'inherit', fontSize: 12, fontWeight: 500, cursor: loading ? 'not-allowed' : 'pointer', borderRadius: 'var(--rs)', border: '1px solid var(--green-b)', background: 'var(--green)', color: '#fff', opacity: loading ? 0.7 : 1 }}>
-        {loading ? '⏳ 生成中...' : '📸 プロンプト生成'}
-      </button>
+      <div>
+        <button onClick={handleGenerate} disabled={loading}
+          style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '7px 16px', fontFamily: 'inherit', fontSize: 12, fontWeight: 500, cursor: loading ? 'not-allowed' : 'pointer', borderRadius: 'var(--rs)', border: '1px solid var(--green-b)', background: 'var(--green)', color: '#fff', opacity: loading ? 0.7 : 1 }}>
+          {loading ? '⏳ 生成中...' : '📸 プロンプト生成'}
+        </button>
+      </div>
       {result && (
-        <div>
-          <pre style={{ fontSize: 12, color: 'var(--text)', background: 'var(--green-l)', border: '1px solid var(--green-b)', borderRadius: 'var(--rs)', padding: '12px 14px', whiteSpace: 'pre-wrap', lineHeight: 1.7, marginBottom: 8, fontFamily: 'inherit' }}>{result}</pre>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+          <div style={{ background: 'var(--green-l)', border: '1px solid var(--green-b)', borderRadius: 'var(--rs)', padding: '12px 14px' }}>
+            <p style={{ fontSize: 10, fontWeight: 600, color: 'var(--green)', marginBottom: 4 }}>英語プロンプト（DALL-E / Midjourney用）</p>
+            <pre style={{ fontSize: 11, color: 'var(--text)', whiteSpace: 'pre-wrap', fontFamily: 'inherit', lineHeight: 1.7, marginBottom: 8 }}>{result.en_prompt}</pre>
+            <p style={{ fontSize: 10, fontWeight: 600, color: 'var(--green)', marginBottom: 4 }}>日本語訳</p>
+            <p style={{ fontSize: 11, color: 'var(--text2)', lineHeight: 1.7 }}>{result.ja_prompt}</p>
+          </div>
+          <div>
+            <p style={{ fontSize: 11, fontWeight: 600, color: 'var(--text2)', marginBottom: 6 }}>Instagramキャプション</p>
+            <pre style={{ fontSize: 12, color: 'var(--text)', background: 'var(--white)', border: '1px solid var(--border)', borderRadius: 'var(--rs)', padding: '14px 16px', whiteSpace: 'pre-wrap', lineHeight: 1.8, fontFamily: 'inherit', boxShadow: '0 1px 3px rgba(0,0,0,.04)' }}>{result.caption}</pre>
+          </div>
           <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
-            <CopyButton text={result} label="プロンプトをコピー" onCopied={() => onStepComplete(15)} />
+            <CopyButton text={`${result.en_prompt}\n\n---\n\n${result.caption}`} label="プロンプト＋キャプションをコピー" onCopied={() => onStepComplete(15)} />
           </div>
         </div>
       )}
