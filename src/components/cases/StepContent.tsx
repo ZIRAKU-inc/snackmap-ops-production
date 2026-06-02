@@ -26,20 +26,83 @@ function Step1({ caseItem }: Pick<Props, 'caseItem'>) {
   )
 }
 
+type DmTemplate = 'lounge' | 'karaoke'
+
 function Step2({ caseItem, onStepComplete }: Pick<Props, 'caseItem' | 'onStepComplete'>) {
-  const dm = `はじめまして！スナックマップ運営事務局と申します。
+  const [template, setTemplate] = useState<DmTemplate>('lounge')
 
-${caseItem.store_name}様のInstagramを拝見し、ぜひスナックマップにご掲載いただきたくご連絡しました。
+  const name = caseItem.store_name
 
-スナックマップは、スナック・バー・ラウンジを探しているお客様に向けた専門の情報サイトです。
+  const templates: Record<DmTemplate, { label: string; text: string }> = {
+    lounge: {
+      label: 'ラウンジ ver',
+      text: `初めまして！
+スナック・ラウンジ専門情報検索&求人サイト「スナックマップ」の浅野と申します🤲
 
-掲載は完全無料で、店舗ページの作成から公開まで私どもが対応いたします。
+スナックマップのInstagramでは全国のスナック・ラウンジをご紹介しています！
 
-よろしければ、詳細をご案内させていただけますでしょうか？`
+スナック・ラウンジ紹介アカウントで日本一のフォロワーを抱える為、投稿をご覧になってお店に伺うお客様や求職者が急増中です✨
+
+YouTube「スナックはしご酒」では、全国のスナック・ラウンジを紹介しており、80万再生を超える動画の他、1万再生を超える動画が多々あります🙌
+
+${name}様の投稿は素敵な投稿が多いのでご紹介をしてもよろしいでしょうか？
+
+ご確認をよろしくお願いいたします🙇
+
+下記URLよりスナックマップとYouTubeをご覧いただけます！
+
+スナックマップ公式サイト
+https://www.snack-map.com/
+YouTubeスナックはしご酒
+https://youtube.com/@snack-hashigozake?feature=shared`,
+    },
+    karaoke: {
+      label: 'カラオケバー ver',
+      text: `初めまして！
+
+スナック・バー専門情報検索&求人サイト「スナックマップ」の浅野と申します🤲
+
+スナックマップのInstagramでは全国のスナック・バーをご紹介しています！
+
+スナック・バー紹介アカウントで日本一のフォロワーを抱える為、投稿をご覧になってお店に伺うお客様や求職者が急増中です✨
+
+YouTube「スナックはしご酒」では、全国のスナック・バーを紹介しており、80万再生を超える動画の他、1万再生を超える動画が多々あります🙌
+
+${name}様の投稿は素敵な投稿が多いのでご紹介をしてもよろしいでしょうか？
+
+ご確認をよろしくお願いいたします🙇
+
+下記URLよりスナックマップとYouTubeをご覧いただけます！
+
+スナックマップ公式サイト
+https://www.snack-map.com/
+YouTubeスナックはしご酒
+https://youtube.com/@snack-hashigozake?feature=shared`,
+    },
+  }
+
+  const dm = templates[template].text
 
   return (
-    <div style={{ marginTop: 12 }}>
-      <p style={{ fontSize: 11, color: 'var(--text3)', marginBottom: 6 }}>コピーしてInstagramのDMに貼り付けてください</p>
+    <div>
+      <div style={{ display: 'flex', gap: 6, marginBottom: 12 }}>
+        {(Object.keys(templates) as DmTemplate[]).map(key => (
+          <button
+            key={key}
+            onClick={() => setTemplate(key)}
+            style={{
+              padding: '5px 14px', borderRadius: 100, fontSize: 11, fontWeight: 500,
+              cursor: 'pointer', fontFamily: 'inherit', border: '1px solid',
+              ...(template === key
+                ? { background: 'var(--acc-l)', borderColor: 'var(--acc-b)', color: 'var(--acc)' }
+                : { background: 'var(--white)', borderColor: 'var(--border)', color: 'var(--text2)' }
+              ),
+            }}
+          >
+            {templates[key].label}
+          </button>
+        ))}
+      </div>
       <pre style={{ fontSize: 12, color: 'var(--text)', background: 'var(--white)', border: '1px solid var(--border)', borderRadius: 'var(--rs)', padding: '14px 16px', whiteSpace: 'pre-wrap', lineHeight: 1.8, marginBottom: 8, fontFamily: 'inherit', boxShadow: '0 1px 3px rgba(0,0,0,.04)' }}>
         {dm}
       </pre>

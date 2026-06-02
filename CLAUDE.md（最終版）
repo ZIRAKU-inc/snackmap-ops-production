@@ -1,0 +1,326 @@
+# CLAUDE.md — Snack Map Ops 仕様書
+
+株式会社ZIRAKU / 田村 作成  
+最終更新：2026-06-01  
+ステータス：**仕様確定済み・本番実装開始**
+
+---
+
+## プロジェクト概要
+
+スナックマップの営業〜ページ制作業務を効率化する社内ツール。  
+Instagram営業からページ公開までの全フロー（5フェーズ・15ステップ）を一元管理するWebアプリ。
+
+**デモURL（参照用）**：https://snackmap-ops-demo-k2qo.vercel.app/
+
+---
+
+## 技術スタック
+
+| 領域 | 技術 |
+|------|------|
+| フレームワーク | Next.js 14（App Router） |
+| 言語 | TypeScript |
+| スタイリング | Tailwind CSS（レスポンシブ対応） |
+| DB / バックエンド | Supabase（PostgreSQL） |
+| AI生成 | Anthropic Claude API（claude-sonnet-4-6 / claude-haiku-4-5-20251001） |
+| デプロイ | Vercel |
+| 既存ツール | GASツール（営業リスト自動取得）※変更なし |
+
+---
+
+## 認証・ユーザー設計
+
+### 方針
+- Supabase Auth（メールアドレス＋パスワード）
+- 使用者は社内固定メンバーのみ（最大2名）
+- 新規サインアップ不可。Adminがダッシュボードから招待する運用
+- RLS不要（全ユーザーが全データにアクセス可能）
+
+### Supabase クライアント設定
+
+```typescript
+// src/lib/supabase/client.ts
+import { createBrowserClient } from '@supabase/ssr'
+
+export const createClient = () =>
+  createBrowserClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+  )
+```
+
+```typescript
+// src/lib/supabase/server.ts
+import { createServerClient } from '@supabase/ssr'
+import { cookies } from 'next/headers'
+
+export const createServerSupabaseClient = async () => {
+  const cookieStore = await cookies()
+  return createServerClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    { cookies: { getAll: () => cookieStore.getAll() } }
+  )
+}
+```
+
+### 環境変数
+
+```
+NEXT_PUBLIC_SUPABASE_URL=https://jwjfyejfqizhnclpgyeq.supabase.co
+NEXT_PUBLIC_SUPABASE_ANON_KEY=sb_publishable_GL5Np6WUYGYw1Xjh3BWp1A_v7iQnd1a
+ANTHROPIC_API_KEY=（Supabase Edge Functions経由でのみ使用。フロントエンドには公開しない）
+```
+
+---
+
+## DBスキーマ
+
+### cases（案件テーブル）
+
+```sql
+create table cases (
+  id uuid default gen_random_uuid() primary key,
+  store_name text not null,
+  instagram_account text,
+  area text,
+  assignee text,
+  notes text,
+  status text not null default 'active'
+    check (status in ('active', 'completed', 'archived')),
+  current_phase text not null default 'sales'
+    check (current_phase in ('sales', 'collection', 'production', 'review', 'instagram')),
+  current_step integer not null default 1,
+  step_completed jsonb not null default '{}',
+  drive_folder_url text,
+  store_page_url text,
+  job_page_url text,
+  created_at timestamptz default now() not null,
+  updated_at timestamptz default now() not null
+);
+
+create index cases_status_idx on cases(status);
+create index cases_created_at_idx on cases(created_at desc);
+```
+
+### generated_content（AI生成結果テーブル）
+
+```sql
+create table generated_content (
+  id uuid default gen_random_uuid() primary key,
+  case_id uuid references cases(id) on delete cascade not null,
+  content_type text not null
+    check (content_type in ('store_intro', 'job_text', 'instagram_prompt')),
+  input_data jsonb not null,
+  output_text text not null,
+  created_at timestamptz default now() not null
+);
+
+create index generated_content_case_id_idx on generated_content(case_id);
+```
+
+---
+
+## Claude API使用箇所
+
+APIキーは必ず **Supabase Edge Functions** 経由で呼ぶ。フロントエンドに公開しない。
+
+### 1. 店舗紹介文生成（Sonnet 4.6）
+
+**Edge Function名**：`generate-store-intro`
+
+**入力フィールド（全て空欄可。空欄は生成文に含めない）**
+
+| フィールド | 型 | 備考 |
+|-----------|-----|------|
+| store_name | string | 必須（案件から自動入力） |
+| area_detail | string | 「難波駅徒歩3分」など |
+| genre | string | スナック / ラウンジ / バー / その他 |
+| price_range | string | 「チャージ1,000円〜」など |
+| business_hours | string | 空欄なら生成文に含めない |
+| atmosphere | string | 「アットホーム」「カラオケあり」など |
+| raw_hearing | string | DMヒアリング原文そのまま |
+
+**出力**：タイトル5案 / 紹介文700字 / SEOタイトル / メタディスクリプション
+
+**ハルシネーション防止ルール**：
+- 空欄フィールドはプロンプトから完全に除外する
+- 「入力情報に含まれていない内容（電話番号・具体的な価格・スタッフ名など）を生成してはいけない」をシステムプロンプトに明記する
+
+**コスト目安**：1回あたり約$0.017（Input 1,500 tokens / Output 800 tokens）
+
+---
+
+### 2. 求人文生成（Sonnet 4.6）
+
+**Edge Function名**：`generate-job-text`
+
+**入力フィールド（全て空欄可）**
+
+| フィールド | 型 | 備考 |
+|-----------|-----|------|
+| store_name | string | 必須（自動入力） |
+| hourly_wage | string | 空欄なら含めない |
+| working_hours | string | 「20時〜翌2時」など |
+| desired_person | string | 空欄なら含めない |
+| benefits | string | 「交通費支給」など |
+| raw_hearing | string | 求人ヒアリング原文 |
+
+**出力**：求人本文 / タグ候補15個
+
+**コスト目安**：1回あたり約$0.013（Input 1,200 tokens / Output 600 tokens）
+
+---
+
+### 3. Instagramプロンプト生成（Haiku 4.5）
+
+**Edge Function名**：`generate-instagram-prompt`
+
+**入力フィールド**
+
+| フィールド | 型 |
+|-----------|-----|
+| store_name | string |
+| area | string |
+| price_range | string |
+| business_hours | string |
+| features | string |
+| atmosphere | string |
+
+**出力**：DALL-E用英語プロンプト / 日本語訳 / Instagramキャプション
+
+**コスト目安**：1回あたり約$0.002（Input 400 tokens / Output 300 tokens）
+
+---
+
+## 機能構成（5フェーズ・15ステップ）
+
+### 📨 フェーズ1：営業（3ステップ）
+
+| Step | 名称 | 自動化内容 |
+|------|------|-----------|
+| 1 | 案件登録 | モーダルで店舗名・アカウント・エリア・担当・備考を入力 |
+| 2 | 初回DM送信 | 店舗名を自動差し込み。コピーで完了 |
+| 3 | 返信対応 | 2パターン切替。コピーで完了 |
+
+**DM業態別テンプレート**：
+- スナック向け（実装済み）
+- ラウンジ・バー向け（★担当者確認待ち → 確認後に追加実装）
+
+### 📁 フェーズ2：情報収集（4ステップ）
+
+| Step | 名称 | 備考 |
+|------|------|------|
+| 4 | 画像依頼DM | コピーで完了 |
+| 5 | 画像受け取り・Drive保存 | フォルダURLを案件に紐付け |
+| 6 | 店舗情報ヒアリング依頼 | フォーム or DMの2パターン |
+| 7 | 求人ヒアリング依頼 | 不要な場合はスキップ可 |
+
+### ✨ フェーズ3：ページ制作（3ステップ）
+
+| Step | 名称 | Claude API |
+|------|------|-----------|
+| 8 | 店舗紹介文AI生成 | ✅ Sonnet 4.6 |
+| 9 | 求人文AI生成 | ✅ Sonnet 4.6 |
+| 10 | 管理画面入力 | ガイド内蔵（別タブ不要） |
+
+### 🚀 フェーズ4：確認・公開（3ステップ）
+
+| Step | 名称 | 自動化内容 |
+|------|------|-----------|
+| 11 | 初稿確認依頼 | 店舗URL・求人URLを入力するとDM文が自動生成 |
+| 12 | 修正対応 | 修正なしの場合はスキップ可 |
+| 13 | 公開・後処理 | Search Console登録・顧客リスト更新のガイド |
+
+### 📸 フェーズ5：Instagram投稿（2ステップ）
+
+| Step | 名称 | Claude API |
+|------|------|-----------|
+| 14 | 投稿情報入力 | 6項目入力 |
+| 15 | 画像プロンプト生成 | ✅ Haiku 4.5 |
+
+---
+
+## UI設計方針
+
+### レスポンシブ対応
+- **PC優先**（Chromeブラウザがメイン）
+- Tailwindの`sm:`ブレークポイントでモバイル対応
+- 営業フェーズ（DM送信）は特にスマホで使いやすく実装する
+- ページ制作フェーズはPC前提で可
+
+### ダッシュボード
+- KPIバー：総案件数・未着手・進行中・制作中・完了
+- 案件カード：フェーズ別進捗バー5本・「作業へ」ボタン
+- フィルター：ステータス絞り込み・店舗名検索・登録日ソート
+- 完了案件：「完了フィルター」で非表示（初期実装はこれで十分）
+
+---
+
+## ディレクトリ構成
+
+```
+snackmap-ops/
+├── src/
+│   ├── app/
+│   │   ├── (auth)/
+│   │   │   └── login/page.tsx
+│   │   ├── dashboard/page.tsx
+│   │   ├── cases/[id]/page.tsx
+│   │   └── api/（使用しない。Edge Functions経由）
+│   ├── components/
+│   │   ├── dashboard/
+│   │   ├── cases/
+│   │   └── ui/
+│   ├── lib/
+│   │   ├── supabase/
+│   │   │   ├── client.ts
+│   │   │   └── server.ts
+│   │   └── types.ts
+│   └── hooks/
+├── supabase/
+│   └── functions/
+│       ├── generate-store-intro/
+│       ├── generate-job-text/
+│       └── generate-instagram-prompt/
+├── CLAUDE.md（本ファイル）
+└── docs/
+    ├── db-schema.md
+    ├── hearing-result.md
+    └── dm-templates.md
+```
+
+---
+
+## 実装上の注意事項
+
+1. **APIキーは絶対にフロントに置かない** → Supabase Edge Functions経由のみ
+2. **空欄フィールドはプロンプトから除外** → ハルシネーション防止
+3. **コピーアクションでステップ自動完了** → `updated_at`と`step_completed`を同時更新
+4. **案件IDはURLに含める** → `/cases/[id]` でブックマーク可能にする
+5. **Supabaseプロジェクトは新規作成** → 他プロジェクトへの影響ゼロ
+
+---
+
+## 未実装・保留事項
+
+| 項目 | 状態 | 対応方針 |
+|------|------|---------|
+| ラウンジ・バーDMテンプレート | 担当者確認待ち | 確認後に`dm-templates.md`に追記して実装 |
+| GASスプレッドシート連携 | 初期リリース対象外 | 将来対応。casesテーブルにgas_row_idカラムを予約済み |
+| 顧客スナックリスト連携 | 初期リリース対象外 | 疎結合設計で対応予備 |
+| リリーススケジュール | 未確定 | 実装進捗に合わせて確認 |
+| Instagramプロンプト品質評価 | 難波さん評価待ち | リリース後にフィードバック収集 |
+
+---
+
+## コスト概算
+
+| 月間案件数 | 月額（再生成×2.5込み） |
+|-----------|----------------------|
+| 10件 | 約¥120 |
+| 30件 | 約¥360 |
+| 50件 | 約¥600 |
+
+※プロンプトキャッシュ適用でさらに最大90%削減可能
