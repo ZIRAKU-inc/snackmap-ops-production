@@ -901,75 +901,191 @@ function Step14({ caseItem, onStepComplete }: Pick<Props, 'caseItem' | 'onStepCo
   )
 }
 
-interface InstagramResult {
-  en_prompt: string
-  ja_prompt: string
-  caption: string
+function buildImagePromptA(storeName: string, prefectureCity: string, catchcopy: string): string {
+  return `以下の仕様でInstagram投稿用の画像を作成してください。
+
+【ベース画像】
+添付の写真をそのまま使用する。加工・フィルターは不要。
+
+【レイアウト】
+縦長（9:16 または 4:5）のInstagram投稿フォーマット。
+
+上部に横幅いっぱいの黒い帯を配置し、中央に「スナックマップ一推し」と白い太いゴシック体で表示する。
+
+中央エリアに添付写真を配置する。
+
+写真の下に白い背景の帯を配置し、左寄せで以下を表示する。
+1行目（小さめ）：${prefectureCity}
+2行目（大きめ・太字）：${storeName}
+
+最下部にダークグレー半透明の帯を配置し、中央寄せで以下のキャッチコピーを黄色の太いゴシック体で表示する。
+「${catchcopy}」
+
+【フォント・デザイン】
+- 日本語フォント：ゴシック体・太字
+- タイトル帯と店名は白背景・黒文字または黒背景・白文字でコントラストを明確に
+- キャッチコピー帯はダークグレー（#333333 程度）の半透明背景
+- 全体的にSNS映えするスッキリしたレイアウト`
+}
+
+function buildImagePromptB(bodyText: string): string {
+  return `以下の仕様でInstagram投稿用の画像を作成してください。
+
+【ベース画像】
+添付の写真をそのまま使用する。フィルター・トリミングは不要。
+
+【レイアウト】
+縦長（9:16 または 4:5）のInstagram投稿フォーマット。
+
+写真を全面に配置する。
+
+写真の下部30%程度にダークグレー半透明（#333333・透明度60%程度）の帯を重ねる。
+
+帯の中央に以下のテキストを白い太いゴシック体・中央寄せで表示する（2〜3行）。
+「${bodyText}」
+
+【フォント・デザイン】
+- 日本語フォント：ゴシック体・太字
+- テキストは白色・中央寄せ・読みやすい文字サイズ
+- 帯の透明度は写真が透けて見える程度（背景を完全に隠さない）
+- 全体的にSNS映えするシンプルなレイアウト`
 }
 
 function Step15({ caseItem, onStepComplete }: Pick<Props, 'caseItem' | 'onStepComplete'>) {
-  const [form, setForm] = usePersistedForm(`smo_case_${caseItem.id}_ig`, { area: caseItem.area || '', price_range: '', business_hours: '', features: '', atmosphere: '' })
-  const [result, setResult] = useState<InstagramResult | null>(null)
-  const [loading, setLoading] = useState(false)
+  const [pattern, setPattern] = useState<'A' | 'B'>('A')
+  const [form, setForm] = usePersistedForm(`smo_case_${caseItem.id}_ig`, {
+    store_name: caseItem.store_name || '',
+    prefecture_city: caseItem.area || '',
+    area: '',
+    price_range: '',
+    business_hours: '',
+    features: '',
+    atmosphere: '',
+  })
+  const [generatedText, setGeneratedText] = useState('')
+  const [imagePrompt, setImagePrompt] = useState('')
+  const [loadingText, setLoadingText] = useState(false)
   const [error, setError] = useState('')
 
-  const handleGenerate = async () => {
-    setLoading(true); setError('')
+  const handleGenerateText = async () => {
+    setLoadingText(true); setError(''); setImagePrompt('')
     try {
       const res = await fetch(`${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/generate-instagram-prompt`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY}` },
-        body: JSON.stringify({ store_name: caseItem.store_name, ...form }),
+        body: JSON.stringify({ pattern, ...form }),
       })
       const data = await res.json()
       if (!res.ok) throw new Error(data.error || '生成に失敗しました')
-      setResult(data as InstagramResult)
+      setGeneratedText(data.generated_text || '')
     } catch (e: unknown) {
       setError(e instanceof Error ? e.message : '生成に失敗しました')
-    } finally { setLoading(false) }
+    } finally { setLoadingText(false) }
   }
 
-  const fields = [
-    { key: 'area',           label: 'エリア',   placeholder: '難波' },
-    { key: 'price_range',    label: '料金目安', placeholder: 'チャージ1,000円〜' },
-    { key: 'business_hours', label: '営業時間', placeholder: '20時〜翌2時' },
-    { key: 'features',       label: '特徴',     placeholder: 'カラオケあり' },
-    { key: 'atmosphere',     label: '雰囲気',   placeholder: 'アットホーム' },
+  const handleBuildPrompt = () => {
+    const prompt = pattern === 'A'
+      ? buildImagePromptA(form.store_name, form.prefecture_city, generatedText)
+      : buildImagePromptB(generatedText)
+    setImagePrompt(prompt)
+  }
+
+  const inp: React.CSSProperties = {
+    width: '100%', fontFamily: 'inherit', fontSize: 12, color: 'var(--text)',
+    background: 'var(--white)', border: '1px solid var(--border)', borderRadius: 'var(--rs)',
+    padding: '7px 10px', outline: 'none', boxSizing: 'border-box',
+  }
+
+  const inputFields = [
+    { key: 'store_name',       label: '店舗名',          placeholder: 'BAR IROHA' },
+    { key: 'prefecture_city',  label: '都道府県・市区町村', placeholder: '山梨県甲府市' },
+    { key: 'area',             label: 'エリア',           placeholder: '甲府駅周辺' },
+    { key: 'price_range',      label: '料金目安',         placeholder: 'チャージ1,000円〜' },
+    { key: 'business_hours',   label: '営業時間',         placeholder: '21時〜26時' },
+    { key: 'features',         label: '特徴',            placeholder: 'カラオケあり' },
+    { key: 'atmosphere',       label: '雰囲気',           placeholder: 'アットホーム' },
   ] as const
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+
+      {/* パターン選択 */}
+      <div>
+        <p style={{ fontSize: 11, fontWeight: 600, color: 'var(--text2)', marginBottom: 8 }}>画像パターン</p>
+        <div style={{ display: 'flex', gap: 8 }}>
+          {(['A', 'B'] as const).map(p => (
+            <button key={p} onClick={() => { setPattern(p); setGeneratedText(''); setImagePrompt('') }}
+              style={{
+                padding: '6px 20px', borderRadius: 100, fontSize: 12, fontWeight: 600,
+                cursor: 'pointer', fontFamily: 'inherit', border: '1px solid',
+                ...(pattern === p
+                  ? { background: 'var(--green)', borderColor: 'var(--green-b)', color: '#fff' }
+                  : { background: 'var(--white)', borderColor: 'var(--border)', color: 'var(--text2)' }
+                ),
+              }}>
+              パターン{p}
+            </button>
+          ))}
+        </div>
+        <p style={{ fontSize: 10, color: 'var(--text3)', marginTop: 6 }}>
+          {pattern === 'A' ? 'タイトル帯＋店名＋キャッチコピー帯' : '写真全面＋下部テキスト帯のみ'}
+        </p>
+      </div>
+
+      {/* 入力フィールド */}
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
-        {fields.map(({ key, label, placeholder }) => (
+        {inputFields.map(({ key, label, placeholder }) => (
           <div key={key}>
             <label style={{ fontSize: 11, color: 'var(--text2)', display: 'block', marginBottom: 4 }}>{label}</label>
-            <input type="text" value={form[key]} onChange={e => setForm({ [key]: e.target.value })} placeholder={placeholder}
-              style={{ width: '100%', fontFamily: 'inherit', fontSize: 12, color: 'var(--text)', background: 'var(--white)', border: '1px solid var(--border)', borderRadius: 'var(--rs)', padding: '7px 10px', outline: 'none' }} />
+            <input type="text" value={form[key]} onChange={e => setForm({ [key]: e.target.value })} placeholder={placeholder} style={inp} />
           </div>
         ))}
       </div>
-      {error && <p style={{ fontSize: 11, color: '#dc2626' }}>{error}</p>}
+
+      {/* テキスト生成 */}
+      <div style={{ borderTop: '1px solid var(--border)', paddingTop: 14 }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
+          <p style={{ fontSize: 11, fontWeight: 600, color: 'var(--text2)' }}>
+            {pattern === 'A' ? 'キャッチコピー（2文・40字程度）' : '本文テキスト（60字程度）'}
+          </p>
+          <button onClick={handleGenerateText} disabled={loadingText}
+            style={{ display: 'inline-flex', alignItems: 'center', gap: 5, padding: '5px 12px', fontFamily: 'inherit', fontSize: 11, fontWeight: 500, cursor: loadingText ? 'not-allowed' : 'pointer', borderRadius: 'var(--rs)', border: '1px solid var(--green-b)', background: 'var(--green-l)', color: 'var(--green)', opacity: loadingText ? 0.6 : 1 }}>
+            {loadingText ? '⏳ 生成中...' : generatedText ? '🔄 再生成' : '✨ テキスト生成'}
+          </button>
+        </div>
+        {error && <p style={{ fontSize: 11, color: '#dc2626', marginBottom: 6 }}>{error}</p>}
+        <textarea
+          value={generatedText}
+          onChange={e => { setGeneratedText(e.target.value); setImagePrompt('') }}
+          placeholder={pattern === 'A' ? '「テキスト生成」を押すとキャッチコピーが生成されます。直接入力も可能です。' : '「テキスト生成」を押すと本文テキストが生成されます。直接入力も可能です。'}
+          rows={3}
+          style={{ width: '100%', fontFamily: 'inherit', fontSize: 12, color: 'var(--text)', background: 'var(--white)', border: '1px solid var(--border)', borderRadius: 'var(--rs)', padding: '10px 12px', outline: 'none', resize: 'vertical', lineHeight: 1.8, boxSizing: 'border-box' }}
+        />
+      </div>
+
+      {/* プロンプト組み立て */}
       <div>
-        <button onClick={handleGenerate} disabled={loading}
-          style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '7px 16px', fontFamily: 'inherit', fontSize: 12, fontWeight: 500, cursor: loading ? 'not-allowed' : 'pointer', borderRadius: 'var(--rs)', border: '1px solid var(--green-b)', background: 'var(--green)', color: '#fff', opacity: loading ? 0.7 : 1 }}>
-          {loading ? '⏳ 生成中...' : '📸 プロンプト生成'}
+        <button
+          onClick={handleBuildPrompt}
+          disabled={!generatedText.trim()}
+          style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '7px 16px', fontFamily: 'inherit', fontSize: 12, fontWeight: 600, cursor: !generatedText.trim() ? 'not-allowed' : 'pointer', borderRadius: 'var(--rs)', border: '1px solid var(--green-b)', background: 'var(--green)', color: '#fff', opacity: !generatedText.trim() ? 0.4 : 1 }}>
+          📸 プロンプトを組み立てる
         </button>
       </div>
-      {result && (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-          <div style={{ background: 'var(--green-l)', border: '1px solid var(--green-b)', borderRadius: 'var(--rs)', padding: '12px 14px' }}>
-            <p style={{ fontSize: 10, fontWeight: 600, color: 'var(--green)', marginBottom: 4 }}>英語プロンプト（DALL-E / Midjourney用）</p>
-            <pre style={{ fontSize: 11, color: 'var(--text)', whiteSpace: 'pre-wrap', fontFamily: 'inherit', lineHeight: 1.7, marginBottom: 8 }}>{result.en_prompt}</pre>
-            <p style={{ fontSize: 10, fontWeight: 600, color: 'var(--green)', marginBottom: 4 }}>日本語訳</p>
-            <p style={{ fontSize: 11, color: 'var(--text2)', lineHeight: 1.7 }}>{result.ja_prompt}</p>
+
+      {/* 最終プロンプト */}
+      {imagePrompt && (
+        <div style={{ borderTop: '1px solid var(--border)', paddingTop: 14, display: 'flex', flexDirection: 'column', gap: 8 }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+            <p style={{ fontSize: 11, fontWeight: 600, color: 'var(--text2)' }}>ChatGPT（gpt-image-2）用プロンプト</p>
+            <CopyButton text={imagePrompt} label="プロンプトをコピー" onCopied={() => onStepComplete(15)} />
           </div>
-          <div>
-            <p style={{ fontSize: 11, fontWeight: 600, color: 'var(--text2)', marginBottom: 6 }}>Instagramキャプション</p>
-            <pre style={{ fontSize: 12, color: 'var(--text)', background: 'var(--white)', border: '1px solid var(--border)', borderRadius: 'var(--rs)', padding: '14px 16px', whiteSpace: 'pre-wrap', lineHeight: 1.8, fontFamily: 'inherit', boxShadow: '0 1px 3px rgba(0,0,0,.04)' }}>{result.caption}</pre>
-          </div>
-          <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
-            <CopyButton text={`${result.en_prompt}\n\n---\n\n${result.caption}`} label="プロンプト＋キャプションをコピー" onCopied={() => onStepComplete(15)} />
-          </div>
+          <pre style={{ fontSize: 11, color: 'var(--text)', background: 'var(--green-l)', border: '1px solid var(--green-b)', borderRadius: 'var(--rs)', padding: '14px 16px', whiteSpace: 'pre-wrap', lineHeight: 1.8, fontFamily: 'inherit', maxHeight: 320, overflowY: 'auto' }}>
+            {imagePrompt}
+          </pre>
+          <p style={{ fontSize: 10, color: 'var(--text3)' }}>
+            ✅ このプロンプトを ChatGPT にコピーし、店舗写真を添付して送信してください。
+          </p>
         </div>
       )}
     </div>

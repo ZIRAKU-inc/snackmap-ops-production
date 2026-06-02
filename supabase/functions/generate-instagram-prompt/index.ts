@@ -6,7 +6,9 @@ const CORS = {
 }
 
 interface InstagramPromptInput {
+  pattern: 'A' | 'B'
   store_name?: string
+  prefecture_city?: string
   area?: string
   price_range?: string
   business_hours?: string
@@ -24,38 +26,30 @@ serve(async (req) => {
 
   try {
     const input: InstagramPromptInput = await req.json()
+    const pattern = input.pattern ?? 'A'
 
-    const fields = [
+    const storeInfo = [
       buildField('店舗名', input.store_name),
-      buildField('エリア', input.area),
-      buildField('料金目安', input.price_range),
-      buildField('営業時間', input.business_hours),
-      buildField('特徴', input.features),
+      buildField('エリア・地域', input.prefecture_city || input.area),
       buildField('雰囲気', input.atmosphere),
+      buildField('特徴', input.features),
     ].filter(Boolean).join('\n')
 
-    const systemPrompt = `あなたはスナックマップのSNS担当者です。
-あなたは今回のリクエストで渡された情報のみを使用してください。他の店舗・案件・地域の情報を混入させてはなりません。
+    const systemPrompt = pattern === 'A'
+      ? `あなたはスナックマップのInstagram投稿用コピーライターです。
+店舗情報をもとに、来店意欲を高める短いキャッチコピーを2文・40字程度で生成してください。
+体言止めを活用し、夜のお店らしい温かみのある表現にしてください。
+あなたは今回のリクエストで渡された情報のみを使用してください。入力情報にない内容を補完・創作してはいけません。
+JSONのみ出力してください。説明・前置き不要。`
+      : `あなたはスナックマップのInstagram投稿用ライターです。
+店舗・ママの魅力を語りかける文体で60字程度・2〜3行で生成してください。
+体言止めは使わず、読んだ人が「行ってみたい」と感じる温かい文章にしてください。
+あなたは今回のリクエストで渡された情報のみを使用してください。入力情報にない内容を補完・創作してはいけません。
+JSONのみ出力してください。説明・前置き不要。`
 
-以下の禁止事項を厳守してください：
-- 入力情報に含まれていない数字（金額・時間・距離・人数）を生成してはならない
-- 入力情報に含まれていない固有名詞（駅名・地域名・人名・店舗名）を生成してはならない
-- 入力情報に含まれていない状態・属性を推測して生成してはならない
-- 空欄のフィールドに対応する内容は生成文に含めてはならない
-
-出力はJSON形式のみ。説明文・前置き・マークダウン記法は不要。`
-
-    const userPrompt = `以下の店舗情報をもとに、Instagram投稿用のAI画像生成プロンプトとキャプションを作成してください。
-
-【店舗情報】
-${fields || '（情報なし）'}
-
-【出力形式】
-{
-  "en_prompt": "DALL-E / Midjourney向け英語プロンプト（店舗の雰囲気を表現する画像生成用）",
-  "ja_prompt": "上記英語プロンプトの日本語訳",
-  "caption": "Instagram投稿キャプション（絵文字・ハッシュタグ含む）"
-}`
+    const userPrompt = pattern === 'A'
+      ? `以下の店舗情報をもとにキャッチコピーを生成してください。\n\n${storeInfo}\n\n出力形式：\n{"generated_text": "2文・40字程度のキャッチコピー"}`
+      : `以下の店舗情報をもとに本文テキストを生成してください。\n\n${storeInfo}\n\n出力形式：\n{"generated_text": "60字程度・語りかける文体の本文"}`
 
     const apiKey = Deno.env.get('ANTHROPIC_API_KEY')
     if (!apiKey) throw new Error('ANTHROPIC_API_KEY が設定されていません')
@@ -69,7 +63,7 @@ ${fields || '（情報なし）'}
       },
       body: JSON.stringify({
         model: 'claude-haiku-4-5-20251001',
-        max_tokens: 800,
+        max_tokens: 400,
         system: systemPrompt,
         messages: [{ role: 'user', content: userPrompt }],
       }),
@@ -87,9 +81,10 @@ ${fields || '（情報なし）'}
 
     try {
       const parsed = JSON.parse(clean)
-      return new Response(JSON.stringify(parsed), {
-        headers: { ...CORS, 'Content-Type': 'application/json' },
-      })
+      return new Response(
+        JSON.stringify({ pattern, generated_text: parsed.generated_text }),
+        { headers: { ...CORS, 'Content-Type': 'application/json' } },
+      )
     } catch {
       return new Response(
         JSON.stringify({ error: 'Parse failed', raw }),
