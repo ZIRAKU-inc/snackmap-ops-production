@@ -346,7 +346,9 @@ function Step8({ caseItem, onStepComplete }: Pick<Props, 'caseItem' | 'onStepCom
       })
       const data = await res.json()
       if (!res.ok) throw new Error(data.error || '生成に失敗しました')
-      setResult(data as StoreIntroResult)
+      const parsed = data as StoreIntroResult
+      setResult(parsed)
+      try { localStorage.setItem(`smo_case_${caseItem.id}_store_intro_result`, JSON.stringify(parsed)) } catch {}
     } catch (e: unknown) {
       setError(e instanceof Error ? e.message : '生成に失敗しました')
     } finally { setLoading(false) }
@@ -439,7 +441,9 @@ function Step9({ caseItem, onStepComplete }: Pick<Props, 'caseItem' | 'onStepCom
       })
       const data = await res.json()
       if (!res.ok) throw new Error(data.error || '生成に失敗しました')
-      setResult(data as JobTextResult)
+      const parsed = data as JobTextResult
+      setResult(parsed)
+      try { localStorage.setItem(`smo_case_${caseItem.id}_job_result`, JSON.stringify(parsed)) } catch {}
     } catch (e: unknown) {
       setError(e instanceof Error ? e.message : '生成に失敗しました')
     } finally { setLoading(false) }
@@ -530,23 +534,191 @@ function Step9({ caseItem, onStepComplete }: Pick<Props, 'caseItem' | 'onStepCom
   )
 }
 
-function Step10({ onStepComplete }: Pick<Props, 'onStepComplete'>) {
+function Step10({ caseItem, onStepComplete }: Pick<Props, 'caseItem' | 'onStepComplete'>) {
+  const [storeIntro, setStoreIntro] = useState<StoreIntroResult | null>(null)
+  const [jobText, setJobText] = useState<JobTextResult | null>(null)
+
+  useEffect(() => {
+    try {
+      const si = localStorage.getItem(`smo_case_${caseItem.id}_store_intro_result`)
+      if (si) setStoreIntro(JSON.parse(si))
+      const jt = localStorage.getItem(`smo_case_${caseItem.id}_job_result`)
+      if (jt) setJobText(JSON.parse(jt))
+    } catch {}
+  }, [caseItem.id])
+
+  const inp: React.CSSProperties = {
+    width: '100%', fontFamily: 'inherit', fontSize: 12, color: 'var(--text)',
+    background: 'var(--white)', border: '1px solid var(--border)', borderRadius: 'var(--rs)',
+    padding: '7px 10px', outline: 'none',
+  }
+
+  const sectionTitle = (n: string, done: boolean) => (
+    <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
+      <span style={{ width: 20, height: 20, borderRadius: '50%', background: done ? 'var(--green)' : 'var(--blue)', color: '#fff', fontSize: 10, fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>{done ? '✓' : '→'}</span>
+      <span style={{ fontSize: 12, fontWeight: 600, color: done ? 'var(--green)' : 'var(--text)' }}>{n}</span>
+    </div>
+  )
+
+  const card = (children: React.ReactNode, done = false) => (
+    <div style={{ background: 'var(--white)', border: `1px solid ${done ? 'var(--green-b)' : 'var(--border)'}`, borderRadius: 'var(--rs)', padding: '14px 16px', boxShadow: '0 1px 3px rgba(0,0,0,.04)' }}>
+      {children}
+    </div>
+  )
+
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-      <div style={{ background: 'var(--blue-l)', border: '1px solid var(--blue-b)', borderRadius: 'var(--rs)', padding: '12px 14px' }}>
-        <p style={{ fontSize: 12, fontWeight: 500, color: 'var(--blue)', marginBottom: 8 }}>管理画面入力ガイド</p>
-        <ol style={{ fontSize: 11, color: 'var(--blue)', paddingLeft: 16, lineHeight: 2.2 }}>
-          <li>スナックマップ管理画面にログイン</li>
-          <li>「新規店舗追加」から店舗名・エリアを入力</li>
-          <li>生成した店舗紹介文をコピー＆ペースト</li>
-          <li>Driveから写真をダウンロードしてアップロード</li>
-          <li>求人ページも同様に入力</li>
-          <li>「下書き保存」して確認URLを控える</li>
-        </ol>
-      </div>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+
+      {/* 1. ログイン */}
+      {card(
+        <>
+          {sectionTitle('スナックマップ管理画面にログイン', false)}
+          <a href="https://www.snack-map.com/admin" target="_blank" rel="noopener noreferrer"
+            style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '6px 14px', borderRadius: 'var(--rs)', background: 'var(--blue-l)', border: '1px solid var(--blue-b)', color: 'var(--blue)', fontSize: 11, fontWeight: 500, textDecoration: 'none' }}>
+            🔑 管理画面を開く
+          </a>
+        </>
+      )}
+
+      {/* 2. 店舗名・エリア */}
+      {card(
+        <>
+          {sectionTitle('「新規店舗追加」から店舗名・エリアを入力', !!(caseItem.store_name && caseItem.area))}
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+            <div>
+              <label style={{ fontSize: 10, color: 'var(--text3)', display: 'block', marginBottom: 3 }}>店舗名</label>
+              <div style={{ display: 'flex', gap: 6 }}>
+                <input readOnly value={caseItem.store_name} style={{ ...inp, background: 'var(--surface)', cursor: 'text' }} />
+                <CopyButton text={caseItem.store_name} label="コピー" />
+              </div>
+            </div>
+            <div>
+              <label style={{ fontSize: 10, color: 'var(--text3)', display: 'block', marginBottom: 3 }}>エリア</label>
+              <div style={{ display: 'flex', gap: 6 }}>
+                <input readOnly value={caseItem.area || '（未設定）'} style={{ ...inp, background: 'var(--surface)', cursor: 'text' }} />
+                {caseItem.area && <CopyButton text={caseItem.area} label="コピー" />}
+              </div>
+            </div>
+          </div>
+        </>,
+        !!(caseItem.store_name && caseItem.area)
+      )}
+
+      {/* 3. 店舗紹介文 */}
+      {card(
+        <>
+          {sectionTitle('生成した店舗紹介文をコピー＆ペースト', !!storeIntro)}
+          {storeIntro ? (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+              <div>
+                <p style={{ fontSize: 10, color: 'var(--text3)', marginBottom: 4 }}>タイトル案（5案）</p>
+                <ol style={{ fontSize: 11, color: 'var(--text)', paddingLeft: 18, lineHeight: 2 }}>
+                  {storeIntro.titles.map((t, i) => <li key={i}>{t}</li>)}
+                </ol>
+              </div>
+              <div>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 4 }}>
+                  <p style={{ fontSize: 10, color: 'var(--text3)' }}>紹介文</p>
+                  <CopyButton text={storeIntro.body} label="紹介文をコピー" />
+                </div>
+                <pre style={{ fontSize: 11, color: 'var(--text)', background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 'var(--rs)', padding: '10px 12px', whiteSpace: 'pre-wrap', lineHeight: 1.8, fontFamily: 'inherit', maxHeight: 160, overflowY: 'auto' }}>{storeIntro.body}</pre>
+              </div>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+                <div>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 4 }}>
+                    <p style={{ fontSize: 10, color: 'var(--text3)' }}>SEOタイトル</p>
+                    <CopyButton text={storeIntro.seo_title} label="コピー" />
+                  </div>
+                  <p style={{ fontSize: 11, color: 'var(--text)', background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 'var(--rs)', padding: '8px 10px' }}>{storeIntro.seo_title}</p>
+                </div>
+                <div>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 4 }}>
+                    <p style={{ fontSize: 10, color: 'var(--text3)' }}>メタディスクリプション</p>
+                    <CopyButton text={storeIntro.meta_description} label="コピー" />
+                  </div>
+                  <p style={{ fontSize: 11, color: 'var(--text)', background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 'var(--rs)', padding: '8px 10px' }}>{storeIntro.meta_description}</p>
+                </div>
+              </div>
+            </div>
+          ) : (
+            <p style={{ fontSize: 11, color: 'var(--amber)', background: 'var(--amber-l)', border: '1px solid var(--amber-b)', borderRadius: 'var(--rs)', padding: '8px 12px' }}>
+              Step 8「店舗紹介文AI生成」でAI生成を完了させると、ここに表示されます。
+            </p>
+          )}
+        </>,
+        !!storeIntro
+      )}
+
+      {/* 4. Drive写真 */}
+      {card(
+        <>
+          {sectionTitle('Driveから写真をダウンロードしてアップロード', !!caseItem.drive_folder_url)}
+          {caseItem.drive_folder_url ? (
+            <a href={caseItem.drive_folder_url} target="_blank" rel="noopener noreferrer"
+              style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '6px 14px', borderRadius: 'var(--rs)', background: 'var(--blue-l)', border: '1px solid var(--blue-b)', color: 'var(--blue)', fontSize: 11, fontWeight: 500, textDecoration: 'none' }}>
+              📁 Driveフォルダを開く
+            </a>
+          ) : (
+            <p style={{ fontSize: 11, color: 'var(--amber)', background: 'var(--amber-l)', border: '1px solid var(--amber-b)', borderRadius: 'var(--rs)', padding: '8px 12px' }}>
+              Step 5でDriveフォルダURLを登録するとリンクが表示されます。
+            </p>
+          )}
+        </>,
+        !!caseItem.drive_folder_url
+      )}
+
+      {/* 5. 求人文 */}
+      {card(
+        <>
+          {sectionTitle('求人ページも同様に入力', !!jobText)}
+          {jobText ? (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+              <div>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 4 }}>
+                  <p style={{ fontSize: 10, color: 'var(--text3)' }}>求人タイトル</p>
+                  <CopyButton text={jobText.title} label="コピー" />
+                </div>
+                <p style={{ fontSize: 12, fontWeight: 600, color: 'var(--text)', background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 'var(--rs)', padding: '8px 10px' }}>{jobText.title}</p>
+              </div>
+              <div>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 4 }}>
+                  <p style={{ fontSize: 10, color: 'var(--text3)' }}>求人本文</p>
+                  <CopyButton text={jobText.body} label="求人文をコピー" />
+                </div>
+                <pre style={{ fontSize: 11, color: 'var(--text)', background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 'var(--rs)', padding: '10px 12px', whiteSpace: 'pre-wrap', lineHeight: 1.8, fontFamily: 'inherit', maxHeight: 160, overflowY: 'auto' }}>{jobText.body}</pre>
+              </div>
+              <div>
+                <p style={{ fontSize: 10, color: 'var(--text3)', marginBottom: 4 }}>タグ</p>
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>
+                  {jobText.tags.map((tag, i) => (
+                    <span key={i} style={{ fontSize: 10, padding: '2px 8px', borderRadius: 100, background: 'var(--white)', border: '1px solid var(--border)', color: 'var(--text2)' }}>{tag}</span>
+                  ))}
+                </div>
+              </div>
+            </div>
+          ) : (
+            <p style={{ fontSize: 11, color: 'var(--text3)' }}>
+              Step 9「求人文AI生成」を完了させると、ここに表示されます。（求人不要の場合はスキップ可）
+            </p>
+          )}
+        </>,
+        !!jobText
+      )}
+
+      {/* 6. 下書き保存 */}
+      {card(
+        <>
+          {sectionTitle('「下書き保存」して確認URLを控える', false)}
+          <p style={{ fontSize: 11, color: 'var(--text2)', lineHeight: 1.8 }}>
+            管理画面で「下書き保存」を押し、表示された確認URLをコピーしてください。<br />
+            次のステップ（初稿確認依頼）でそのURLを使ってDMを送ります。
+          </p>
+        </>
+      )}
+
       <div>
         <button onClick={() => onStepComplete(10)}
-          style={{ padding: '6px 16px', fontFamily: 'inherit', fontSize: 12, fontWeight: 500, cursor: 'pointer', borderRadius: 'var(--rs)', border: '1px solid var(--green-b)', background: 'var(--green)', color: '#fff' }}>
+          style={{ padding: '7px 18px', fontFamily: 'inherit', fontSize: 12, fontWeight: 500, cursor: 'pointer', borderRadius: 'var(--rs)', border: '1px solid var(--green-b)', background: 'var(--green)', color: '#fff' }}>
           入力完了
         </button>
       </div>
@@ -751,7 +923,7 @@ export default function StepContent({ step, caseItem, onStepComplete, onUpdateCa
     case 7:  return <Step7  caseItem={caseItem} onStepComplete={onStepComplete} />
     case 8:  return <Step8  caseItem={caseItem} onStepComplete={onStepComplete} />
     case 9:  return <Step9  caseItem={caseItem} onStepComplete={onStepComplete} />
-    case 10: return <Step10 onStepComplete={onStepComplete} />
+    case 10: return <Step10 caseItem={caseItem} onStepComplete={onStepComplete} />
     case 11: return <Step11 step={step} caseItem={caseItem} onStepComplete={onStepComplete} onUpdateCase={onUpdateCase} />
     case 12: return <Step12 onStepComplete={onStepComplete} />
     case 13: return <Step13 onStepComplete={onStepComplete} />
