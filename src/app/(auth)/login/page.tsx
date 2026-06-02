@@ -1,17 +1,6 @@
 'use client'
 
 import { useState } from 'react'
-
-function DebugEnv() {
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL
-  const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
-  return (
-    <>
-      URL: {url ? `${url.slice(0, 32)}...` : '❌ 未設定'}<br />
-      KEY: {key ? `${key.slice(0, 12)}...（${key.length}文字）` : '❌ 未設定'}
-    </>
-  )
-}
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 
@@ -118,10 +107,6 @@ export default function LoginPage() {
           © 2024 株式会社ZIRAKU
         </p>
 
-        {/* 環境変数デバッグ（確認後に削除） */}
-        <div style={{ marginTop: 16, padding: '8px 12px', background: '#f1f5f9', borderRadius: 6, fontSize: 10, color: '#64748b', fontFamily: 'monospace', wordBreak: 'break-all' }}>
-          <DebugEnv />
-        </div>
       </div>
     </div>
   )
