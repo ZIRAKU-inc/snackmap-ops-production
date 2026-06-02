@@ -289,14 +289,14 @@ function Step8({ caseItem, onStepComplete }: Pick<Props, 'caseItem' | 'onStepCom
           <div key={key}>
             <label style={{ fontSize: 11, color: 'var(--text2)', display: 'block', marginBottom: 4 }}>{label}</label>
             <input type="text" value={context[key]} onChange={e => setContext({ [key]: e.target.value })} placeholder={placeholder}
-              style={{ width: '100%', fontFamily: 'inherit', fontSize: 12, color: 'var(--text)', background: 'var(--bg)', border: '1px solid var(--border)', borderRadius: 'var(--rs)', padding: '7px 10px', outline: 'none' }} />
+              style={{ width: '100%', fontFamily: 'inherit', fontSize: 12, color: 'var(--text)', background: 'var(--white)', border: '1px solid var(--border)', borderRadius: 'var(--rs)', padding: '7px 10px', outline: 'none' }} />
           </div>
         ))}
       </div>
       <div>
         <label style={{ fontSize: 11, color: 'var(--text2)', display: 'block', marginBottom: 4 }}>ヒアリング原文</label>
         <textarea value={rawHearing.raw_hearing} onChange={e => setRawHearing({ raw_hearing: e.target.value })} placeholder="DMやフォームで受け取ったヒアリング内容をそのまま貼り付け" rows={4}
-          style={{ width: '100%', fontFamily: 'inherit', fontSize: 12, color: 'var(--text)', background: 'var(--bg)', border: '1px solid var(--border)', borderRadius: 'var(--rs)', padding: '7px 10px', outline: 'none', resize: 'vertical' }} />
+          style={{ width: '100%', fontFamily: 'inherit', fontSize: 12, color: 'var(--text)', background: 'var(--white)', border: '1px solid var(--border)', borderRadius: 'var(--rs)', padding: '7px 10px', outline: 'none', resize: 'vertical' }} />
       </div>
       {error && <p style={{ fontSize: 11, color: '#dc2626' }}>{error}</p>}
       <button onClick={handleGenerate} disabled={loading}
@@ -375,14 +375,14 @@ function Step9({ caseItem, onStepComplete }: Pick<Props, 'caseItem' | 'onStepCom
           <div key={key}>
             <label style={{ fontSize: 11, color: 'var(--text2)', display: 'block', marginBottom: 4 }}>{label}</label>
             <input type="text" value={jobForm[key]} onChange={e => setJobForm({ [key]: e.target.value })} placeholder={placeholder}
-              style={{ width: '100%', fontFamily: 'inherit', fontSize: 12, color: 'var(--text)', background: 'var(--bg)', border: '1px solid var(--border)', borderRadius: 'var(--rs)', padding: '7px 10px', outline: 'none' }} />
+              style={{ width: '100%', fontFamily: 'inherit', fontSize: 12, color: 'var(--text)', background: 'var(--white)', border: '1px solid var(--border)', borderRadius: 'var(--rs)', padding: '7px 10px', outline: 'none' }} />
           </div>
         ))}
       </div>
       <div>
         <label style={{ fontSize: 11, color: 'var(--text2)', display: 'block', marginBottom: 4 }}>求人ヒアリング原文</label>
         <textarea value={jobForm.raw_hearing} onChange={e => setJobForm({ raw_hearing: e.target.value })} placeholder="求人ヒアリング内容をそのまま貼り付け" rows={3}
-          style={{ width: '100%', fontFamily: 'inherit', fontSize: 12, color: 'var(--text)', background: 'var(--bg)', border: '1px solid var(--border)', borderRadius: 'var(--rs)', padding: '7px 10px', outline: 'none', resize: 'vertical' }} />
+          style={{ width: '100%', fontFamily: 'inherit', fontSize: 12, color: 'var(--text)', background: 'var(--white)', border: '1px solid var(--border)', borderRadius: 'var(--rs)', padding: '7px 10px', outline: 'none', resize: 'vertical' }} />
       </div>
       {error && <p style={{ fontSize: 11, color: '#dc2626' }}>{error}</p>}
       <button onClick={handleGenerate} disabled={loading}
@@ -453,12 +453,12 @@ ${storeUrl}${jobUrl ? `\n\n■ 求人ページ\n${jobUrl}` : ''}
         <div>
           <label style={{ fontSize: 11, color: 'var(--text2)', display: 'block', marginBottom: 4 }}>店舗ページURL</label>
           <input type="url" value={storeUrl} onChange={e => setStoreUrl(e.target.value)} placeholder="https://snackmap.jp/stores/..."
-            style={{ width: '100%', fontFamily: 'inherit', fontSize: 12, color: 'var(--text)', background: 'var(--bg)', border: '1px solid var(--border)', borderRadius: 'var(--rs)', padding: '7px 10px', outline: 'none' }} />
+            style={{ width: '100%', fontFamily: 'inherit', fontSize: 12, color: 'var(--text)', background: 'var(--white)', border: '1px solid var(--border)', borderRadius: 'var(--rs)', padding: '7px 10px', outline: 'none' }} />
         </div>
         <div>
           <label style={{ fontSize: 11, color: 'var(--text2)', display: 'block', marginBottom: 4 }}>求人ページURL（任意）</label>
           <input type="url" value={jobUrl} onChange={e => setJobUrl(e.target.value)} placeholder="https://snackmap.jp/jobs/..."
-            style={{ width: '100%', fontFamily: 'inherit', fontSize: 12, color: 'var(--text)', background: 'var(--bg)', border: '1px solid var(--border)', borderRadius: 'var(--rs)', padding: '7px 10px', outline: 'none' }} />
+            style={{ width: '100%', fontFamily: 'inherit', fontSize: 12, color: 'var(--text)', background: 'var(--white)', border: '1px solid var(--border)', borderRadius: 'var(--rs)', padding: '7px 10px', outline: 'none' }} />
         </div>
       </div>
       <button onClick={handleSave} style={{ alignSelf: 'flex-start', padding: '5px 12px', fontSize: 11, fontFamily: 'inherit', cursor: 'pointer', borderRadius: 'var(--rs)', border: '1px solid var(--blue-b)', background: 'var(--blue-l)', color: 'var(--blue)' }}>
@@ -571,7 +571,7 @@ function Step15({ caseItem, onStepComplete }: Pick<Props, 'caseItem' | 'onStepCo
           <div key={key}>
             <label style={{ fontSize: 11, color: 'var(--text2)', display: 'block', marginBottom: 4 }}>{label}</label>
             <input type="text" value={form[key]} onChange={e => setForm({ [key]: e.target.value })} placeholder={placeholder}
-              style={{ width: '100%', fontFamily: 'inherit', fontSize: 12, color: 'var(--text)', background: 'var(--bg)', border: '1px solid var(--border)', borderRadius: 'var(--rs)', padding: '7px 10px', outline: 'none' }} />
+              style={{ width: '100%', fontFamily: 'inherit', fontSize: 12, color: 'var(--text)', background: 'var(--white)', border: '1px solid var(--border)', borderRadius: 'var(--rs)', padding: '7px 10px', outline: 'none' }} />
           </div>
         ))}
       </div>
