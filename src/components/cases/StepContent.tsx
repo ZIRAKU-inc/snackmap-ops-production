@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import CopyButton from './CopyButton'
 import { Case } from '@/lib/types'
 import { usePersistedForm } from '@/hooks/usePersistedForm'
